@@ -1,0 +1,25 @@
+{
+  "name": "chapter2-module-system-examples",
+  "version": "1.0.0",
+  "description": "Chapter 2: 모듈 시스템 코드 예제",
+  "scripts": {
+    "01": "node 01-revealing-module-pattern.js",
+    "02": "node 02-commonjs-named-exports/main.js",
+    "03": "node 03-commonjs-substack-pattern/main.js",
+    "04": "node 04-commonjs-circular-deps/main.js",
+    "05": "node 05-esm-named-exports/main.mjs",
+    "06": "node 06-esm-default-exports/main.mjs",
+    "07-en": "node 07-esm-dynamic-imports/main.mjs en",
+    "07-ko": "node 07-esm-dynamic-imports/main.mjs ko",
+    "08": "node 08-esm-live-bindings/main.mjs"
+  },
+  "keywords": [
+    "nodejs",
+    "modules",
+    "commonjs",
+    "esm",
+    "design-patterns"
+  ],
+  "author": "kilhyeonjun",
+  "license": "MIT"
+}
