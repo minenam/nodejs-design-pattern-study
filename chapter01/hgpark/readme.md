@@ -65,85 +65,145 @@ child_process를 이용하여 다른 프로세스를 실행시키거나, 전역�
 N-API 인터페이스의 도움으로 네이티브 모듈을 구현할 수 있다. (node-canvas)
 Javascript VM들은 WASM을 지원한다.
 
-# 비동기-블로킹 I/O 모델이란..?
+# 비동기-블로킹 I/O 모델이란?
 
-동기 I/O
-1. 동기 I/O 작업 시작
-    - Application Thread
-        - read(fileA, buffer, 1024) 호출
-        - 시스템 콜로 커널 진입
-        - Thread 1은 즉시 BLOCKED 상태
-    - Kernel
-        - Thread 1의 I/O 요청 받음
-        - 디스크 컨트롤러에 읽기 명령
-        - Thread 1을 I/O 대기 큐에 등록
-    - CPU
-        - Thread 1이 BLOCKED 되었으므로
-        - 스케줄러가 다른 Thread/Process 실행
+### 동기 I/O
 
-2. 동기 I/O 작업중
-    - Kernal
-    - Application Thread
-        - BLOCKED
-    - CPU
-        - BLOCKED상태이므로 Application Thread 의 명령어를 수행할 수 없다. 
+1. 작업 시작
+   - Application Thread
+     - `read(fileA, buffer, 1024)` 호출 → 시스템 콜 진입
+     - 즉시 BLOCKED 상태로 전환
+   - Kernel
+     - I/O 요청을 수신하고 디스크 컨트롤러에 읽기 명령 전달
+     - 해당 스레드를 I/O 대기 큐에 등록
+   - CPU
+     - 스케줄러가 BLOCKED 스레드를 제외하고 다른 스레드 실행
 
-3. 동기 I/O 완료
-    - Kernel
-        - 디스크에서 데이터 읽기 완료
-        - Thread 1을 RUNNABLE 상태로 변경
-    - Application Thread
-        - BLOCKED → RUNNABLE
-        - 스케줄러 큐에서 대기
-        - CPU 차례가 오면 RUNNING
-    - CPU
-        - Thread 3 실행 완료 → Thread 1 실행
+2. I/O 진행 중
+   - Kernel
+     - 디스크 I/O 진행
+   - Application Thread
+     - BLOCKED 상태 유지
+   - CPU
+     - BLOCKED 스레드는 실행 불가, 다른 태스크로 전환
 
-비동기 I/O
-1. 비동기 I/O 작업 요청
-    - Application Thread
-        - 커널에 파일 A 를 읽기 요청 등록
-        - 요청만 하고 다른작업은 계속 진행
-    - Kernal
-        - 요청들을 관심목록에 등록(?)
+3. I/O 완료
+   - Kernel
+     - 디스크 데이터 로드 완료 후 스레드를 RUNNABLE로 변경
+   - Application Thread
+     - BLOCKED → RUNNABLE → RUNNING (스케줄러에 의해 재실행)
+   - CPU
+     - 다른 스레드 실행 완료 후 다시 Thread 1을 실행
+
+---
+
+### 비동기 I/O
+
+1. I/O 요청 등록
+   - Application Thread
+     - 커널에 파일 A 읽기 요청을 등록만 하고 즉시 반환
+     - 이후 다른 작업을 병행 수행
+   - Kernel
+     - 요청을 관심 목록(watch list) 에 등록
 
 2. 이벤트 루프 진입
-    - Application Thread
-        - epoll_wait()을 호출하여 멀티플렉서 작동
-        - Thread는 BLOCKED 상태로 전환됨
-    - CPU
-        - Application Thread 이 Blocking 상태이므로 다른 프로세스 실행
+   - Application Thread
+     - `epoll_wait()` 호출로 멀티플렉서 진입
+     - ready 리스트가 비어 있다면, 스레드는 BLOCKED 상태로 전환
+   - CPU
+     - 해당 스레드가 BLOCKED이므로 다른 프로세스/스레드로 전환
 
-3. 백그라운드 I/O wlsgod
-    - Kernal, 하드웨어
-        - 파일 읽는중
-    - Application Thread
-        - epoll_wait() 상태이므로 BLOCKED
-    - CPU
-        - 다른일 하는중
+3. 백그라운드 I/O 진행
+   - Kernel / 하드웨어
+     - 드라이버 수준에서 I/O 수행
+     - FD에서 이벤트 발생 시 epoll 내부 구조 업데이트 및 ready 리스트 추가
+   - Application Thread
+     - 커널이 인터럽트를 통해 스레드를 깨움 (BLOCKED → RUNNABLE)
 
-4. I/O 완료
-    - Kernal
-        - DB 응답 데이터를 버퍼에 저장
-        - 이벤트를 epoll 준비 목록에 추가
-        - epoll_wait()하는 Thread 깨우기
-    - Application Thread
-        - BLOCKED -> RUNNABLE 상태로 상태 변경
+4. I/O 준비 완료 통지 (이벤트 수준)
+   - Kernel
+     - FD가 "읽기/쓰기 가능" 상태가 되면 epoll ready 목록에 추가
+     - 대기 중인 스레드를 깨움 (BLOCKED → RUNNABLE)
+   - Application Thread
+     - `epoll_wait()`가 리턴하며 이벤트 정보 반환
+     - 예: {fd: 3, events: EPOLLIN} - "fd 3번이 읽기 가능"
+   
+5. 실제 I/O 수행 (데이터 수준)
+   - Application Thread
+     - 준비된 FD에 대해 실제 `read()/write()` 시스템 콜 수행
+     - **이때 논블로킹 모드라면 즉시 리턴**
+     - 커널 버퍼 ↔ 사용자 버퍼 간 데이터 복사
+   - Kernel
+     - 이미 준비된 데이터를 즉시 전달
+     - 논블로킹 모드: 가능한 만큼만 읽고 즉시 리턴
 
-5. 멀티플렉서 동작
-    - Application Thread
-        - epoll_wait()에서 이벤트 정보 반환 { 파일 A, READ_READY }
+6. 디멀티플렉서 및 콜백 처리
+   - Application Thread
+     - 읽은 데이터를 처리
+     - 적절한 비즈니스 로직 콜백 실행
 
-6. 디멀티플렉서 동작
-    - Application Thread
-        - 이벤트 타입 확인하여 알맞은 콜백 실행
+---
 
-결국 동기 IO나 비동기 IO 모두 Thread에 블로킹이 발생하는건 똑같다.
-다만 무엇이, 얼마나 블로킹 되느냐가 다르다
+### epoll이 스레드를 블로킹하는 시점
 
-ex) 1000개의 IO
-동기 IO: 스레드 1000개가 개별로 블로킹됨 -> CPU간 컨텍스트 스위칭이 발생한다.
-비동기 IO: 이벤트 루프 1개만 블로킹하면 됨
+epoll은 **이벤트를 기다리는 순간**, 즉 `epoll_wait()` 호출 시에만 스레드를 블로킹한다.
+그 외의 모든 순간에는 커널에 요청을 등록만 하고 즉시 반환된다.
 
-따라서 I/O Multiplexing (select/poll) Blocking + Asynchronous 하다.
-(정확히는 비동기 I/O에 Blocking 이 있다.)
+---
+
+### epoll의 이벤트 대기 조건
+그럼 I/O의 수신 준비완료 조건은 무엇인가?
+
+| I/O 종류 | 커널 상태 | epoll 블로킹 해제 조건 | 실제 read() 동작 |
+|---------|---------|-------------------|---------------|
+| TCP 수신 | 수신 버퍼 | 1바이트 이상 도착 | 버퍼에 있는 만큼만 읽음 |
+| TCP 송신 | 송신 버퍼 | 1바이트 이상 공간 | 가능한 만큼만 씀 |
+| UDP 수신 | 수신 큐 | 완전한 데이터그램 1개 | 데이터그램 단위로 읽음 |
+| 일반 파일 | 페이지 캐시 | 거의 항상 ready | 요청한 만큼 읽음 (블로킹 가능)* |
+| 파이프 | 파이프 버퍼 | 데이터 존재 시 | 버퍼에 있는 만큼 읽음 |
+
+일반 파일 I/O의 경우 대부분 이미 커널 캐시에 존재하므로 거의 항상 “ready” 상태다.
+
+**I/O요청의 시점부터 위의 epoll 블로킹 해제 조건까지 Application Thread가 블로킹 된다.**
+---
+
+### 결국 이것도 블로킹이지 않나?
+
+맞다. 동기 I/O든 비동기 I/O든 결국 어느 시점에서는 스레드가 블로킹된다.
+차이는 블로킹되는 주체와 범위에 있다.
+
+- 동기 I/O: 요청한 스레드가 개별적으로 블로킹됨 → 많은 컨텍스트 스위칭 발생
+- 비동기 I/O: 이벤트 루프 1개만 블로킹 → 수천 개의 I/O를 한 스레드로 처리 가능
+
+즉, “비동기-블로킹 I/O”는 비동기적으로 I/O를 등록하지만,
+이벤트 루프 수준에서 블로킹이 존재하는 모델이다.
+
+---
+
+### 그럼 Node.js 관점에서 비동기 I/O란?
+
+Node.js는 libuv 기반의 이벤트 루프를 사용하여 비동기-블로킹 I/O 모델을 구현한다.
+
+- 네트워크 I/O: epoll/kqueue 사용
+- 파일 I/O: 스레드 풀 사용 (libuv의 워커 스레드)
+
+Linux의 일반 파일은 epoll에서 항상 "ready"로 나타나므로, 메모리에 파일이 없는 경우 디스크 I/O가 발생한다. = 파일에 대해서는 블로킹일 가능성이 있다.
+**따라서 Node.js는 파일을 워커스레드 풀을 이용해 사용읽는다. (워커스레드가 I/O를 담당하고 메인스레드는 논블로킹으로 동작한다.)**
+```javascript
+// 네트워크: 메인 스레드의 epoll
+http.get('example.com', callback);  
+
+// 파일: 워커 스레드 풀 (기본 4개)
+fs.readFile('large.txt', callback);
+```
+
+- `fs.readFile()`
+  → 비동기 호출로, 파일 읽기 요청을 커널에 등록하고 즉시 반환한다.
+  → 커널이 I/O를 완료하면 이벤트 루프가 이를 감지하고 콜백을 실행한다.
+  → 즉, epoll_wait()이 블로킹되고, 실제 파일 I/O는 백그라운드에서 진행된다.
+
+- `fs.readFileSync()`
+  → 동기 호출로, 호출한 스레드가 커널 I/O 완료까지 직접 BLOCKED 된다.
+  → 이벤트 루프가 돌지 않으므로, 다른 비동기 작업도 함께 멈춘다.
+
+**요약: Node.js의 비동기 I/O는 내부적으로는 epoll 기반 블로킹 대기, 외부적으로는 논블로킹 API처럼 동작한다.**
