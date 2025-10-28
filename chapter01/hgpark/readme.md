@@ -64,3 +64,86 @@ child_process를 이용하여 다른 프로세스를 실행시키거나, 전역�
 
 N-API 인터페이스의 도움으로 네이티브 모듈을 구현할 수 있다. (node-canvas)
 Javascript VM들은 WASM을 지원한다.
+
+# 비동기-블로킹 I/O 모델이란..?
+
+동기 I/O
+1. 동기 I/O 작업 시작
+    - Application Thread
+        - read(fileA, buffer, 1024) 호출
+        - 시스템 콜로 커널 진입
+        - Thread 1은 즉시 BLOCKED 상태
+    - Kernel
+        - Thread 1의 I/O 요청 받음
+        - 디스크 컨트롤러에 읽기 명령
+        - Thread 1을 I/O 대기 큐에 등록
+    - CPU
+        - Thread 1이 BLOCKED 되었으므로
+        - 스케줄러가 다른 Thread/Process 실행
+
+2. 동기 I/O 작업중
+    - Kernal
+    - Application Thread
+        - BLOCKED
+    - CPU
+        - BLOCKED상태이므로 Application Thread 의 명령어를 수행할 수 없다. 
+
+3. 동기 I/O 완료
+    - Kernel
+        - 디스크에서 데이터 읽기 완료
+        - Thread 1을 RUNNABLE 상태로 변경
+    - Application Thread
+        - BLOCKED → RUNNABLE
+        - 스케줄러 큐에서 대기
+        - CPU 차례가 오면 RUNNING
+    - CPU
+        - Thread 3 실행 완료 → Thread 1 실행
+
+비동기 I/O
+1. 비동기 I/O 작업 요청
+    - Application Thread
+        - 커널에 파일 A 를 읽기 요청 등록
+        - 요청만 하고 다른작업은 계속 진행
+    - Kernal
+        - 요청들을 관심목록에 등록(?)
+
+2. 이벤트 루프 진입
+    - Application Thread
+        - epoll_wait()을 호출하여 멀티플렉서 작동
+        - Thread는 BLOCKED 상태로 전환됨
+    - CPU
+        - Application Thread 이 Blocking 상태이므로 다른 프로세스 실행
+
+3. 백그라운드 I/O wlsgod
+    - Kernal, 하드웨어
+        - 파일 읽는중
+    - Application Thread
+        - epoll_wait() 상태이므로 BLOCKED
+    - CPU
+        - 다른일 하는중
+
+4. I/O 완료
+    - Kernal
+        - DB 응답 데이터를 버퍼에 저장
+        - 이벤트를 epoll 준비 목록에 추가
+        - epoll_wait()하는 Thread 깨우기
+    - Application Thread
+        - BLOCKED -> RUNNABLE 상태로 상태 변경
+
+5. 멀티플렉서 동작
+    - Application Thread
+        - epoll_wait()에서 이벤트 정보 반환 { 파일 A, READ_READY }
+
+6. 디멀티플렉서 동작
+    - Application Thread
+        - 이벤트 타입 확인하여 알맞은 콜백 실행
+
+결국 동기 IO나 비동기 IO 모두 Thread에 블로킹이 발생하는건 똑같다.
+다만 무엇이, 얼마나 블로킹 되느냐가 다르다
+
+ex) 1000개의 IO
+동기 IO: 스레드 1000개가 개별로 블로킹됨 -> CPU간 컨텍스트 스위칭이 발생한다.
+비동기 IO: 이벤트 루프 1개만 블로킹하면 됨
+
+따라서 I/O Multiplexing (select/poll) Blocking + Asynchronous 하다.
+(정확히는 비동기 I/O에 Blocking 이 있다.)
