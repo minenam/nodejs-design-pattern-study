@@ -182,7 +182,7 @@ epoll은 **이벤트를 기다리는 순간**, 즉 `epoll_wait()` 호출 시에�
 
 ### 그럼 Node.js 관점에서 비동기 I/O란?
 
-Node.js는 libuv 기반의 이벤트 루프를 사용하여 비동기-블로킹 I/O 모델을 구현한다.
+Node.js는 libuv 기반의 이벤트 루프를 사용하여 비동기-논블로킹 I/O 모델을 구현한다.
 
 - 네트워크 I/O: epoll/kqueue 사용
 - 파일 I/O: 스레드 풀 사용 (libuv의 워커 스레드)
@@ -206,4 +206,9 @@ fs.readFile('large.txt', callback);
   → 동기 호출로, 호출한 스레드가 커널 I/O 완료까지 직접 BLOCKED 된다.
   → 이벤트 루프가 돌지 않으므로, 다른 비동기 작업도 함께 멈춘다.
 
-**요약: Node.js의 비동기 I/O는 내부적으로는 epoll 기반 블로킹 대기, 외부적으로는 논블로킹 API처럼 동작한다.**
+Node.js의 비동기 I/O는 내부적으로는 Blocking - Asyncronous 모델인 I/O Multiplexing 을 사용한다. 이 경우 메인스레드가 I/O Multiplexing이 호출하는 epoll_wait() 에 의해 Block될 수 있다.
+
+### 근데 왜 Node.js는 Non-blocking이라고 소개하는가?
+
+Node.js는 call stack에 모든 코드를 소모했을때만 epoll_wait()을 timeout과 함께 호출한다. (다음 callstack 혹은 Queue에 있는 작업을 처리하기 위함)
+이경우 Node.js 는 I/O작업에 의해 제어권을 상실하지 않으므로 Non-Blocking 이다.
