@@ -65,6 +65,9 @@ child_process를 이용하여 다른 프로세스를 실행시키거나, 전역�
 N-API 인터페이스의 도움으로 네이티브 모듈을 구현할 수 있다. (node-canvas)
 Javascript VM들은 WASM을 지원한다.
 
+
+
+
 # 비동기-블로킹 I/O 모델이란?
 
 ### 동기 I/O
@@ -212,3 +215,5 @@ Node.js의 비동기 I/O는 내부적으로는 Blocking - Asyncronous 모델인 
 
 Node.js는 call stack에 모든 코드를 소모했을때만 epoll_wait()을 timeout과 함께 호출한다. (다음 callstack 혹은 Queue에 있는 작업을 처리하기 위함)
 이경우 Node.js 는 I/O작업에 의해 제어권을 상실하지 않으므로 Non-Blocking 이다.
+
+참고문헌: https://jaehyeon48.github.io/javascript/nodejs-event-loop-2/
