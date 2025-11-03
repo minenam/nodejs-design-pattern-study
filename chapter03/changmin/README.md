@@ -152,3 +152,59 @@ but, 이는 이벤트 루프를 블로킹하므로 신중하게 사용
 여러 번 발생할 수 있는 일을 알릴 때 (EX. `data` 이벤트)
 
 여러 종류의 서로 다른 이벤트를 알릴 때 (EX. `connection`, `data`, `error` 등)
+
+## Lesson & Learned
+
+1. **콜백을 사용한다 !== 비동기 처리를 한다**
+
+   콜백은 단지 "나중에 실행할 함수를 전달"하는 패턴.
+   비동기는 "이벤트 루프와 I/O"가 관여.
+
+   ```javascript
+   // 동기 콜백
+   [1, 2, 3].map((x) => x * 2); // 즉시 실행
+
+   // 비동기 콜백
+   fs.readFile("file.txt", callback); // 나중에 실행
+   ```
+
+2. **JS의 콜백 = 일급 클래스 객체 + 클로저**
+
+   ```javascript
+   function createReader(filename) {
+     let data = null; // 클로저로 캡처됨
+
+     return function (callback) {
+       // 함수를 리턴 (일급 객체)
+       fs.readFile(filename, (err, result) => {
+         data = result; // 외부 스코프 접근 (클로저)
+         callback(err, data);
+       });
+     };
+   }
+   ```
+
+   이 두 특성이 CPS(Continuation Passing Style)를 가능하게 함
+
+3. **EventEmitter의 메모리 누수**
+
+   ```javascript
+   // ❌ 매 요청마다 리스너 추가
+   app.get('/api', (req, res) => {
+       emitter.on('data', handler); // 누수!
+   });
+
+   // ✅ 적절한 시점에 제거
+   const handler = () => { ... };
+   emitter.on('data', handler);
+   // ...
+   emitter.removeListener('data', handler);
+   ```
+
+   리스너는 클로저 → 참조하는 모든 것을 메모리에 유지
+
+## 궁금한 것 (더 찾아볼 내용들)
+
+1. EventEmitter는 생각보다 비즈니스 로직 간 디커플링하기도 좋아보이는데, 실패에 대한 추적이나 에러 핸들링을 어떻게 해야 안정적으로 사용할 수 있을까?
+2. EventLoop 의 동작 방식
+3. EventLoop vs V8 -> 이 둘은 어떻게 싱글 스레드에서 동작을 하는 것일까?
