@@ -125,3 +125,79 @@ process.nextTick()
 setImmediate()
 1. I/O 작업이 끝난 뒤 후속 처리를 예약하고 싶을 때
 2. CPU 바운드 작업을 루프 턴 사이에 분리하고 싶을 때
+
+# EventEmitter를 사용하는 라이브러리나 프레임워크는 뭐가 있지?
+| 분류           | 예시                                   | EventEmitter 사용 이유 |
+|--------------|--------------------------------------|--------------------|
+| Node.js Core | `http`, `net`, `fs`, `child_process` | 비동기 이벤트 처리         |
+| Framework    | Express, NestJS                      | 요청/응답, 도메인 이벤트     |
+| Realtime     | Socket.IO                            | 양방향 통신             |
+| DB           | Mongoose, Sequelize                  | 연결, 훅, 쿼리 이벤트      |
+
+NestJS는 내부적으로 EventEmitter2를 사용함.
+
+## 왜 EventEmitter2가 만들어졌는가?
+기존 EventEmitter는 단순하고 빠르지만 대규모 시스템이나 복잡한 이벤트 흐름을 처리하기엔 어려움이 있었음.
+
+| 한계                | 설명                                 |
+|-------------------|------------------------------------|
+| 와일드카드 이벤트 없음      | `"user.*"` 이런 식으로 그룹 단위 이벤트 리스닝 불가 |
+| 리스너 우선순위 없음       | 등록 순서대로만 실행됨                       |
+| 비동기 리스너 지원 부족     | `await` 기반 처리에 적합하지 않음             |
+| 리스너 개수 제한         | `setMaxListeners()` 기본 10개 제한 있음   |
+| 오브젝트 기반 네임스페이스 없음 | 이벤트 이름 문자열 기반이라 충돌 위험              |
+
+| 기능             | Node EventEmitter | EventEmitter2               |
+|----------------|-------------------|-----------------------------|
+| 와일드카드 이벤트      | ❌                 | ✅                           |
+| 비동기 이벤트        | ❌                 | ✅ (`emitAsync`)             |
+| 리스너 우선순위       | ❌                 | ✅                           |
+| 네임스페이스/패턴 이벤트  | ❌                 | ✅                           |
+| 여러 이벤트 한 번에 등록 | ❌                 | ✅                           |
+| NestJS 통합      | ❌                 | ✅ (`@nestjs/event-emitter`) |
+
+## NestJS의 CQRS 모듈도 내부적으로는 EventEmitter2로 구현이 되어 있나?
+CQRS의 CommandBus, QueryBus, EventBus는 RxJS 기반(Subject/Observable 스트림)으로 동작
+
+### EventEmitter VS NestJS/CQRS
+| 구분 | `@nestjs/event-emitter`     | `@nestjs/cqrs`                            |
+|----|-----------------------------|-------------------------------------------|
+| 목적 | 단순 이벤트 발행/구독 (Notification) | 도메인 중심 아키텍처 (Command-Event-Query 분리)      |
+| 철학 | “A에서 일어났으니 B도 하자”           | “명령(Command)과 결과(Event), 질의(Query)를 분리하자” |
+| 패턴 | Observer 패턴                 | CQRS + Mediator 패턴                        |
+
+| 항목     | EventEmitter                        | CQRS                            |
+|--------|-------------------------------------|---------------------------------|
+| 기반 기술  | `EventEmitter2` (이벤트 핸들러 리스트에 emit) | `RxJS` (Subject 기반 비동기 스트림)     |
+| 호출 방식  | `emit(eventName, payload)`          | `eventBus.publish(new Event())` |
+| 리스너 구조 | 이벤트 이름(string) → 핸들러 목록             | 이벤트 클래스 타입 기반 → 핸들러 자동 바인딩      |
+| 실행 순서  | 등록 순서대로 즉시 실행                       | RxJS Observable 스트림으로 비동기 처리 가능 |
+| 동기/비동기 | 주로 동기(`emitAsync`만 별도)              | 본질적으로 비동기 (Observable 기반)       |
+
+| 상황                                               | 추천 모듈                   | 이유                       |
+|--------------------------------------------------|-------------------------|--------------------------|
+| 단순 알림, 웹훅, 로깅, Slack 알림                          | `@nestjs/event-emitter` | 설정 간단, 이름 기반 이벤트         |
+| 도메인 이벤트, 복잡한 비즈니스 흐름                             | `@nestjs/cqrs`          | Command→Event→Saga 구조 가능 |
+| “A일 때 B도 하고 C도 해라”                               | `event-emitter`         | 단순 Notification 패턴       |
+| “A 명령이 끝나면 Event를 발생시키고, Saga가 다음 Command를 실행하라” | `cqrs`                  | 흐름 제어 중심, 트랜잭션 경계 명확     |
+
+### RxJS 기반(Subject/Observable 스트림) 스트림은 결국 EventEmitter 기반 아닌가?
+RxJS의 스트림(Observable/Subject) 은 EventEmitter를 단순히 추상화한 게 아니라, 훨씬 더 높은 추상 계층의 “반응형 데이터 흐름” 시스템
+
+| 구분        | EventEmitter           | RxJS (Observable/Subject)                        |
+|-----------|------------------------|--------------------------------------------------|
+| 핵심 개념     | 이벤트 → 리스너 호출           | **데이터 스트림(Observable)** → **구독자(Observer)**      |
+| 이벤트 성격    | 1회성 알림 (fire & forget) | **연속적 데이터 흐름**, 변환·조합 가능                         |
+| 구독자 호출 시점 | 이벤트 발생 즉시 콜백 호출        | 데이터 흐름을 구독 후, 오퍼레이터로 가공                          |
+| 에러 처리     | try/catch 불편           | `error` 채널 내장 (`next`, `error`, `complete`)      |
+| 동기/비동기    | 동기 중심 (emit → 즉시 실행)   | 비동기/동기 모두 자연스러움                                  |
+| 연산자 지원    | 없음                     | `map`, `filter`, `mergeMap`, `debounceTime` 등 다수 |
+| 구독 해제     | 수동으로 removeListener    | `subscription.unsubscribe()` 로 손쉽게 관리            |
+
+| 비교 항목     | EventEmitter            | RxJS Subject/Observable      |
+|-----------|-------------------------|------------------------------|
+| 기반 개념     | 콜백 기반 이벤트 시스템           | 반응형 스트림(Observable Sequence) |
+| 실행 시점     | 즉시 실행                   | 스트림 구독 후 반응                  |
+| 데이터 흐름    | 1회성 이벤트                 | 지속적인 데이터 시퀀스                 |
+| 조합/변환     | 불가                      | 연산자 기반 조합/변환 가능              |
+| NestJS 예시 | `@nestjs/event-emitter` | `@nestjs/cqrs`               |
