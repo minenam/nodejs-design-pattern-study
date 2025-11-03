@@ -1,0 +1,12 @@
+{
+  "name": "nodejs-design-pattern-study",
+  "version": "1.0.0",
+  "description": "Node.js 디자인 패턴 스터디 - 테스트 데이터",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["nodejs", "design-pattern", "study"],
+  "author": "kilhyeonjun",
+  "license": "MIT"
+}
