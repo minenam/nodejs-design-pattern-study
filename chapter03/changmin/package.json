@@ -1,0 +1,27 @@
+{
+  "name": "nodejs-event-loop-deep-dive",
+  "version": "1.1.0",
+  "description": "Node.js Event Loop 딥다이브 - 실습 코드",
+  "scripts": {
+    "exp1": "node experiments/experiment1-toplevel.js",
+    "exp2": "node experiments/experiment2-io-cycle.js",
+    "exp3": "node experiments/experiment3-nexttick-promise.js",
+    "exp4": "node experiments/experiment4-comprehensive.js",
+    "experiments": "npm run exp1 && echo '\n\n' && npm run exp2 && echo '\n\n' && npm run exp3 && echo '\n\n' && npm run exp4",
+    "experiments:watch": "for file in experiments/*.js; do echo \"\n=== Running $file ===\"; node \"$file\"; done"
+  },
+  "keywords": [
+    "nodejs",
+    "event-loop",
+    "libuv",
+    "async",
+    "microtask",
+    "nexttick"
+  ],
+  "author": "changmin",
+  "license": "MIT",
+  "engines": {
+    "node": ">=11.0.0"
+  }
+}
+
