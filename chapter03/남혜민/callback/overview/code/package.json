@@ -1,0 +1,20 @@
+{
+  "name": "callback-pattern-study",
+  "version": "1.0.0",
+  "description": "Node.js 디자인 패턴 바이블 3장 - 콜백 패턴 실습",
+  "main": "callback-examples.js",
+  "scripts": {
+    "start": "node callback-examples.js",
+    "file-processor": "node file-processor.js",
+    "event-loop": "node event-loop-demo.js",
+    "all": "npm run start && npm run file-processor && npm run event-loop"
+  },
+  "keywords": [
+    "nodejs",
+    "callback",
+    "design-patterns",
+    "asynchronous"
+  ],
+  "author": "남혜민",
+  "license": "MIT"
+}

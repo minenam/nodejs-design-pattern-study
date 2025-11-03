@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node.js 콜백과 이벤트 루프 학습 가이드</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 Node.js 콜백과 이벤트 루프</h1>
+            <p class="subtitle">초보 개발자를 위한 쉬운 설명</p>
+        </header>
+
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="basics">기본 개념</button>
+            <button class="tab-btn" data-tab="callback">콜백 패턴</button>
+            <button class="tab-btn" data-tab="eventloop">이벤트 루프</button>
+            <button class="tab-btn" data-tab="practice">실습</button>
+        </nav>
+
+        <!-- 기본 개념 탭 -->
+        <section id="basics" class="tab-content active">
+            <h2>📚 기본 개념 이해하기</h2>
+            
+            <div class="concept-box">
+                <h3>🔄 동기 vs 비동기</h3>
+                <div class="comparison">
+                    <div class="compare-item">
+                        <h4>동기 (Synchronous)</h4>
+                        <p>코드가 <strong>순서대로</strong> 실행됩니다.</p>
+                        <div class="code-example">
+                            <pre><code>console.log('1번');
+console.log('2번');
+console.log('3번');
+
+// 출력: 1번 → 2번 → 3번</code></pre>
+                        </div>
+                        <p class="analogy">🍕 <strong>비유:</strong> 피자 주문 후 받을 때까지 그 자리에서 기다리기</p>
+                    </div>
+                    
+                    <div class="compare-item">
+                        <h4>비동기 (Asynchronous)</h4>
+                        <p>코드가 <strong>순서와 상관없이</strong> 실행됩니다.</p>
+                        <div class="code-example">
+                            <pre><code>console.log('1번');
+setTimeout(() => {
+  console.log('2번');
+}, 1000);
+console.log('3번');
+
+// 출력: 1번 → 3번 → 2번</code></pre>
+                        </div>
+                        <p class="analogy">🍕 <strong>비유:</strong> 피자 주문 후 진동벨 받고 다른 일 하다가 나중에 받기</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>🚦 블로킹 vs 논블로킹</h3>
+                <div class="comparison">
+                    <div class="compare-item">
+                        <h4>블로킹 (Blocking)</h4>
+                        <p>작업이 끝날 때까지 <strong>기다립니다</strong>.</p>
+                        <div class="code-example">
+                            <pre><code>const fs = require('fs');
+
+// 파일을 다 읽을 때까지 기다림
+const data = fs.readFileSync('file.txt');
+console.log(data);
+console.log('다음 작업');</code></pre>
+                        </div>
+                    </div>
+                    
+                    <div class="compare-item">
+                        <h4>논블로킹 (Non-blocking)</h4>
+                        <p>작업이 끝나길 <strong>기다리지 않습니다</strong>.</p>
+                        <div class="code-example">
+                            <pre><code>const fs = require('fs');
+
+// 파일 읽기 시작하고 바로 다음으로
+fs.readFile('file.txt', (err, data) => {
+  console.log(data);
+});
+console.log('다음 작업');</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tip-box">
+                <h4>💡 핵심 정리</h4>
+                <ul>
+                    <li><strong>동기/비동기</strong>는 <em>실행 순서</em>에 관한 것</li>
+                    <li><strong>블로킹/논블로킹</strong>은 <em>기다림 여부</em>에 관한 것</li>
+                    <li>Node.js는 <strong>비동기 + 논블로킹</strong> 방식을 주로 사용합니다!</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- 콜백 패턴 탭 -->
+        <section id="callback" class="tab-content">
+            <h2>🎯 콜백 패턴 완전 정복</h2>
+            
+            <div class="concept-box">
+                <h3>콜백이 뭔가요?</h3>
+                <p class="explanation">
+                    콜백은 <strong>"나중에 실행될 함수"</strong>입니다. 
+                    어떤 작업이 끝나면 "이 함수를 실행해줘!"라고 전달하는 것이죠.
+                </p>
+                
+                <div class="code-example">
+                    <h4>간단한 예제</h4>
+                    <pre><code>// 콜백 함수를 받는 함수
+function greet(name, callback) {
+  console.log('안녕, ' + name);
+  callback(); // 콜백 실행
+}
+
+// 사용
+greet('철수', function() {
+  console.log('만나서 반가워!');
+});
+
+// 출력:
+// 안녕, 철수
+// 만나서 반가워!</code></pre>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>🔥 CPS (Continuation-Passing Style)</h3>
+                <p class="explanation">
+                    결과를 직접 반환하지 않고, <strong>콜백 함수에 결과를 전달</strong>하는 방식입니다.
+                </p>
+                
+                <div class="comparison">
+                    <div class="compare-item">
+                        <h4>일반 방식 (직접 반환)</h4>
+                        <div class="code-example">
+                            <pre><code>function add(a, b) {
+  return a + b;
+}
+
+const result = add(2, 3);
+console.log(result); // 5</code></pre>
+                        </div>
+                    </div>
+                    
+                    <div class="compare-item">
+                        <h4>CPS 방식 (콜백으로 전달)</h4>
+                        <div class="code-example">
+                            <pre><code>function addAsync(a, b, callback) {
+  setTimeout(() => {
+    callback(a + b);
+  }, 1000);
+}
+
+addAsync(2, 3, (result) => {
+  console.log(result); // 5
+});</code></pre>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tip-box">
+                    <p><strong>왜 CPS를 사용할까?</strong></p>
+                    <p>비동기 작업(파일 읽기, DB 조회 등)은 시간이 걸립니다. 
+                    결과를 바로 반환할 수 없으니, 나중에 콜백으로 전달하는 거죠!</p>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>⚠️ Zalgo 문제</h3>
+                <p class="explanation">
+                    함수가 <strong>때로는 동기, 때로는 비동기</strong>로 동작하면 예측할 수 없는 버그가 발생합니다.
+                </p>
+                
+                <div class="code-example bad">
+                    <h4>❌ 나쁜 예제 (Zalgo)</h4>
+                    <pre><code>function getData(useCache, callback) {
+  if (useCache) {
+    // 동기적으로 즉시 실행
+    callback(cachedData);
+  } else {
+    // 비동기적으로 나중에 실행
+    fetchData((data) => {
+      callback(data);
+    });
+  }
+}
+
+// 문제: 실행 순서를 예측할 수 없음!</code></pre>
+                </div>
+                
+                <div class="code-example good">
+                    <h4>✅ 좋은 예제 (일관성 있게)</h4>
+                    <pre><code>function getData(useCache, callback) {
+  if (useCache) {
+    // process.nextTick으로 비동기로 만들기
+    process.nextTick(() => callback(cachedData));
+  } else {
+    fetchData((data) => {
+      callback(data);
+    });
+  }
+}
+
+// 항상 비동기로 동작!</code></pre>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>📋 Node.js 콜백 규칙</h3>
+                
+                <div class="rule-box">
+                    <h4>규칙 1: 콜백은 마지막 인자</h4>
+                    <div class="code-example">
+                        <pre><code>fs.readFile(filename, encoding, callback);
+//                                    ↑ 항상 마지막</code></pre>
+                    </div>
+                </div>
+                
+                <div class="rule-box">
+                    <h4>규칙 2: 에러 우선 콜백 (Error-First Callback)</h4>
+                    <div class="code-example">
+                        <pre><code>fs.readFile('file.txt', (err, data) => {
+  //                          ↑ 첫 번째는 항상 에러
+  if (err) {
+    console.error('에러 발생:', err);
+    return; // 에러 처리 후 종료
+  }
+  
+  // 에러가 없으면 정상 처리
+  console.log(data);
+});</code></pre>
+                    </div>
+                    
+                    <div class="tip-box">
+                        <p><strong>왜 에러를 첫 번째로?</strong></p>
+                        <p>에러 처리를 강제하고, 일관된 패턴을 만들기 위해서입니다!</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 이벤트 루프 탭 -->
+        <section id="eventloop" class="tab-content">
+            <h2>🔄 이벤트 루프 시각화</h2>
+            
+            <div class="concept-box">
+                <h3>이벤트 루프란?</h3>
+                <p class="explanation">
+                    Node.js가 <strong>비동기 작업을 처리하는 메커니즘</strong>입니다. 
+                    마치 놀이공원의 회전목마처럼 계속 돌면서 작업을 처리합니다.
+                </p>
+            </div>
+
+            <div class="eventloop-container">
+                <div class="eventloop-visualization">
+                    <div class="stack-area">
+                        <h4>Call Stack (호출 스택)</h4>
+                        <div id="callStack" class="stack"></div>
+                    </div>
+                    
+                    <div class="queue-area">
+                        <h4>Task Queue (작업 대기열)</h4>
+                        <div id="taskQueue" class="queue"></div>
+                    </div>
+                    
+                    <div class="loop-indicator">
+                        <div id="loopArrow" class="arrow">↻</div>
+                        <p>Event Loop</p>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <button id="startDemo" class="btn-primary">▶ 데모 시작</button>
+                    <button id="resetDemo" class="btn-secondary">↻ 리셋</button>
+                </div>
+                
+                <div class="code-demo">
+                    <h4>실행 중인 코드:</h4>
+                    <pre><code>console.log('1번');
+
+setTimeout(() => {
+  console.log('2번');
+}, 0);
+
+console.log('3번');</code></pre>
+                </div>
+                
+                <div id="output" class="output-box">
+                    <h4>출력 결과:</h4>
+                    <div id="outputContent"></div>
+                </div>
+            </div>
+
+            <div class="concept-box">
+                <h3>🎯 이벤트 루프 동작 순서</h3>
+                <ol class="steps">
+                    <li><strong>Call Stack</strong>에서 코드 실행</li>
+                    <li>비동기 작업(setTimeout, I/O 등)을 만나면 <strong>백그라운드</strong>로 보냄</li>
+                    <li>비동기 작업이 완료되면 콜백을 <strong>Task Queue</strong>에 추가</li>
+                    <li><strong>Call Stack이 비면</strong> Event Loop가 Queue에서 콜백을 가져와 실행</li>
+                    <li>1~4번 반복</li>
+                </ol>
+            </div>
+
+            <div class="concept-box">
+                <h3>⚡ Microtask vs Macrotask</h3>
+                <div class="comparison">
+                    <div class="compare-item">
+                        <h4>Microtask (우선순위 높음)</h4>
+                        <ul>
+                            <li><code>process.nextTick()</code></li>
+                            <li><code>Promise.then()</code></li>
+                        </ul>
+                        <p class="note">현재 작업 직후 바로 실행</p>
+                    </div>
+                    
+                    <div class="compare-item">
+                        <h4>Macrotask (우선순위 낮음)</h4>
+                        <ul>
+                            <li><code>setTimeout()</code></li>
+                            <li><code>setInterval()</code></li>
+                            <li><code>setImmediate()</code></li>
+                        </ul>
+                        <p class="note">다음 이벤트 루프 사이클에 실행</p>
+                    </div>
+                </div>
+                
+                <div class="code-example">
+                    <h4>실행 순서 예제</h4>
+                    <pre><code>console.log('1');
+
+setTimeout(() => console.log('2'), 0);
+
+process.nextTick(() => console.log('3'));
+
+Promise.resolve().then(() => console.log('4'));
+
+console.log('5');
+
+// 출력: 1 → 5 → 3 → 4 → 2</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- 실습 탭 -->
+        <section id="practice" class="tab-content">
+            <h2>💻 직접 해보기</h2>
+            
+            <div class="practice-box">
+                <h3>실습 1: 간단한 콜백 만들기</h3>
+                <div class="code-example">
+                    <pre><code>// 2초 후에 메시지를 출력하는 함수를 만들어보세요
+function delayedMessage(message, callback) {
+  // 여기에 코드 작성
+}
+
+// 사용 예시
+delayedMessage('안녕하세요!', (msg) => {
+  console.log(msg);
+});</code></pre>
+                </div>
+                
+                <details>
+                    <summary>정답 보기</summary>
+                    <div class="code-example good">
+                        <pre><code>function delayedMessage(message, callback) {
+  setTimeout(() => {
+    callback(message);
+  }, 2000);
+}</code></pre>
+                    </div>
+                </details>
+            </div>
+
+            <div class="practice-box">
+                <h3>실습 2: 에러 우선 콜백</h3>
+                <div class="code-example">
+                    <pre><code>// 숫자를 2배로 만드는 함수
+// 숫자가 아니면 에러 반환
+function double(num, callback) {
+  // 여기에 코드 작성
+}
+
+// 사용 예시
+double(5, (err, result) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+  console.log(result); // 10
+});</code></pre>
+                </div>
+                
+                <details>
+                    <summary>정답 보기</summary>
+                    <div class="code-example good">
+                        <pre><code>function double(num, callback) {
+  if (typeof num !== 'number') {
+    callback(new Error('숫자가 아닙니다'));
+    return;
+  }
+  
+  callback(null, num * 2);
+}</code></pre>
+                    </div>
+                </details>
+            </div>
+
+            <div class="practice-box">
+                <h3>실습 3: 실행 순서 맞추기</h3>
+                <p>다음 코드의 출력 순서를 예측해보세요:</p>
+                <div class="code-example">
+                    <pre><code>console.log('A');
+
+setTimeout(() => console.log('B'), 0);
+
+Promise.resolve().then(() => console.log('C'));
+
+process.nextTick(() => console.log('D'));
+
+console.log('E');</code></pre>
+                </div>
+                
+                <details>
+                    <summary>정답 보기</summary>
+                    <div class="answer-box">
+                        <p><strong>출력 순서: A → E → D → C → B</strong></p>
+                        <p>이유:</p>
+                        <ol>
+                            <li>A, E: 동기 코드 먼저 실행</li>
+                            <li>D: process.nextTick (Microtask 최우선)</li>
+                            <li>C: Promise (Microtask)</li>
+                            <li>B: setTimeout (Macrotask)</li>
+                        </ol>
+                    </div>
+                </details>
+            </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
