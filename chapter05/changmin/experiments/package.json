@@ -1,0 +1,22 @@
+{
+  "name": "async-await-babel-experiment",
+  "version": "1.0.0",
+  "description": "async/await이 어떻게 Generator로 변환되는지 실습",
+  "main": "01-async-source.js",
+  "scripts": {
+    "transform": "babel 01-async-source.js --out-file 02-babel-output.js",
+    "transform-readable": "babel 01-async-source.js --out-file 03-babel-output-readable.js --no-comments",
+    "run-source": "node 01-async-source.js",
+    "run-transformed": "node 02-babel-output.js"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.23.0",
+    "@babel/core": "^7.23.0",
+    "@babel/preset-env": "^7.23.0",
+    "@babel/plugin-transform-async-to-generator": "^7.22.5",
+    "@babel/plugin-transform-runtime": "^7.23.0"
+  },
+  "dependencies": {
+    "@babel/runtime": "^7.23.0"
+  }
+}
