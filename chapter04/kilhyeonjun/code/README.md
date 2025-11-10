@@ -20,6 +20,8 @@ code/
 │   ├── spider-v3-parallel.js            # v3 (병렬 실행)
 │   └── spider-v4-limited.js             # v4 (제한된 병렬 + TaskQueue)
 ├── exercises/
+│   ├── 4.1-concat-files.js              # 연습 문제: 파일 연결
+│   ├── 4.2-list-nested-files.js         # 연습 문제: 재귀적 파일 리스트
 │   └── 4.3-recursive-find.js            # 연습 문제: 재귀적 파일 검색
 └── testdata/                            # 테스트 데이터 (자동 생성)
 ```
@@ -354,7 +356,135 @@ node spider-v4-limited.js https://example.com 1 5
 
 ---
 
-### 10. `4.3-recursive-find.js` - 연습 문제
+### 10. `4.1-concat-files.js` - 연습 문제
+
+**문제**: 여러 텍스트 파일을 순서대로 하나의 파일로 연결
+
+**학습 목표**:
+- Rest 파라미터 활용
+- 순차 실행 패턴 적용
+- 파일 순서 유지
+
+**함수 시그니처**:
+```javascript
+concatFiles(src1, src2, ..., dest, callback)
+```
+
+**실행 예시**:
+```bash
+# 3개 파일을 하나로 연결
+node 4.1-concat-files.js
+```
+
+**예상 출력**:
+```
+=== 연습 문제 4.1: 파일 연결 (concatFiles) ===
+
+📌 3개 파일 연결 시작...
+
+📖 읽는 중: file1.txt
+📖 읽는 중: file2.txt
+📖 읽는 중: file3.txt
+
+✅ Concatenated 3 files into concatenated.txt
+
+📄 결합된 내용:
+────────────────────────────────────────
+First file contentSecond file contentThird file content
+────────────────────────────────────────
+
+💡 파일 순서가 유지되었는지 확인하세요!
+```
+
+**핵심 구현**:
+```javascript
+function concatFiles(...args) {
+  const callback = args[args.length - 1]
+  const dest = args[args.length - 2]
+  const srcFiles = args.slice(0, args.length - 2)
+
+  // 순차적으로 파일 읽기
+  function readNext() {
+    if (index === srcFiles.length) {
+      // 모두 읽었으면 목적 파일에 쓰기
+      fs.writeFile(dest, contents.join(''), callback)
+      return
+    }
+    // 다음 파일 읽고 readNext() 재귀 호출
+  }
+}
+```
+
+---
+
+### 11. `4.2-list-nested-files.js` - 연습 문제
+
+**문제**: 디렉터리의 모든 서브 디렉터리를 재귀적으로 탐색하여 파일 목록 반환
+
+**학습 목표**:
+- 재귀적 디렉터리 탐색
+- 완료 카운터 패턴
+- 콜백 지옥 회피
+
+**함수 시그니처**:
+```javascript
+listNestedFiles(dir, callback)
+```
+
+**실행 예시**:
+```bash
+# 현재 디렉터리의 모든 파일 나열
+node 4.2-list-nested-files.js .
+
+# 특정 디렉터리 탐색
+node 4.2-list-nested-files.js ../testdata
+```
+
+**예상 출력**:
+```
+=== 연습 문제 4.2: 재귀적 파일 리스트 (listNestedFiles) ===
+
+📂 탐색 디렉터리: /path/to/testdata
+
+✅ 탐색 완료! (15ms)
+📊 발견된 파일: 5개
+
+파일 목록:
+  1. /path/to/testdata/file1.txt
+  2. /path/to/testdata/file2.txt
+  3. /path/to/testdata/file3.txt
+  4. /path/to/testdata/concatenated.txt
+  5. /path/to/testdata/subdirectory/nested.txt
+```
+
+**핵심 구현**:
+```javascript
+function listNestedFiles(dir, cb) {
+  const allFiles = []
+
+  fs.readdir(dir, { withFileTypes: true }, (err, entries) => {
+    let completed = 0
+    const totalEntries = entries.length
+
+    entries.forEach((entry) => {
+      if (entry.isDirectory()) {
+        // 재귀 호출
+        listNestedFiles(fullPath, (err, nestedFiles) => {
+          allFiles.push(...nestedFiles)
+          if (++completed === totalEntries) cb(null, allFiles)
+        })
+      } else {
+        allFiles.push(fullPath)
+        if (++completed === totalEntries) cb(null, allFiles)
+      }
+    })
+  })
+}
+```
+
+---
+
+### 12. `4.3-recursive-find.js` - 연습 문제
 
 **문제**: 디렉터리에서 키워드를 포함한 파일 재귀적 검색
 
@@ -404,8 +534,10 @@ node 4.3-recursive-find.js ~/projects "console.log" 10
    - 웹 크롤러 단계별 개선
    - v1 → v2 → v3 → v4 순서로
 
-6. **종합 연습** → `exercises/4.3`
-   - 배운 패턴 종합 적용
+6. **종합 연습** → `exercises/*`
+   - 4.1: 순차 실행 패턴 (파일 연결)
+   - 4.2: 재귀와 완료 카운터 (파일 리스트)
+   - 4.3: 제한된 병렬 실행 (재귀적 검색)
 
 ---
 

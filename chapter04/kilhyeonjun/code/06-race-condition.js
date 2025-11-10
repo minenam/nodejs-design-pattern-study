@@ -192,7 +192,7 @@ function runTest2() {
 }
 
 // ✅ 개선: EventEmitter를 사용한 완벽한 해결책
-function runTest3() {
+async function runTest3() {
   console.log('─'.repeat(60))
   console.log("🟢 테스트 3: EventEmitter를 사용한 완벽한 해결책\n")
 
