@@ -1,0 +1,9 @@
+# 자동 생성되는 테스트 데이터
+testdata/
+race-test/
+
+# 로그 파일
+*.log
+
+# Node.js
+node_modules/
